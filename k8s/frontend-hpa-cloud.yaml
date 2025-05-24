@@ -1,0 +1,50 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: llm-chatbot-frontend-hpa
+  namespace: default
+  labels:
+    app: llm-chatbot
+    component: frontend
+    environment: cloud
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: llm-chatbot-frontend
+  minReplicas: 2
+  maxReplicas: 10  # Frontend can scale more since it's lightweight
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 60  # Lower threshold since frontend is lightweight
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 70
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300  # 5 minutes
+      policies:
+      - type: Percent
+        value: 50  # Scale down by max 50% of current replicas
+        periodSeconds: 60
+      - type: Pods
+        value: 1   # Or scale down by max 1 pod
+        periodSeconds: 60
+      selectPolicy: Min  # Use the more conservative policy
+    scaleUp:
+      stabilizationWindowSeconds: 60   # 1 minute for faster scale up
+      policies:
+      - type: Percent
+        value: 100  # Scale up by max 100% of current replicas
+        periodSeconds: 60
+      - type: Pods
+        value: 2    # Or scale up by max 2 pods
+        periodSeconds: 60
+      selectPolicy: Max   # Use the more aggressive policy 

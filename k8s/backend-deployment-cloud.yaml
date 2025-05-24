@@ -1,0 +1,160 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-chatbot-backend
+  namespace: default
+  labels:
+    app: llm-chatbot
+    component: backend
+    version: v1
+    environment: cloud
+spec:
+  replicas: 1  # Start with 1 replica for LLM model
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: llm-chatbot
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: llm-chatbot
+        component: backend
+        version: v1
+        environment: cloud
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: llm-chatbot-service-account
+      securityContext:
+        runAsNonRoot: false  # Ollama needs root access
+        fsGroup: 1000
+      containers:
+      # Ollama sidecar container with TinyLlama pre-loaded
+      - name: ollama
+        image: us-central1-docker.pkg.dev/scalable-llm-chatbot/llm-chatbot-repo/ollama-tinyllama:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 11434
+          name: ollama-http
+        env:
+        - name: OLLAMA_HOST
+          value: "0.0.0.0"
+        - name: OLLAMA_NUM_PARALLEL
+          value: "2"
+        - name: OLLAMA_MAX_LOADED_MODELS
+          value: "1"
+        resources:
+          requests:
+            memory: "2Gi"     # Increased for TinyLlama memory requirements
+            cpu: "500m"       # Reduced for efficient model
+          limits:
+            memory: "6Gi"     # Increased to handle TinyLlama's 8.4GB requirement
+            cpu: "1000m"      # Good performance for inference
+        livenessProbe:
+          httpGet:
+            path: /api/version
+            port: ollama-http
+          initialDelaySeconds: 30   # Faster since model is pre-loaded
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/version
+            port: ollama-http
+          initialDelaySeconds: 15   # Much faster startup
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+      # Main FastAPI application container
+      - name: backend
+        image: us-central1-docker.pkg.dev/scalable-llm-chatbot/llm-chatbot-repo/llm-chatbot-backend:latest
+        imagePullPolicy: Always  # Always pull latest for cloud
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        env:
+        - name: ENVIRONMENT
+          value: "cloud"
+        - name: PORT
+          value: "8000"
+        - name: LLM_MODEL_PROVIDER
+          value: "ollama"  # Use Ollama in cloud
+        - name: LLM_MODEL_NAME
+          value: "tinyllama"     # Use TinyLlama model only
+        - name: LLM_BASE_URL
+          value: "http://localhost:11434"  # Ollama sidecar
+        - name: MAX_CONCURRENT_REQUESTS
+          value: "10"
+        - name: OLLAMA_REQUEST_TIMEOUT
+          value: "30"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        resources:
+          requests:
+            memory: "256Mi"   # Sufficient for FastAPI
+            cpu: "200m"       # Good performance
+          limits:
+            memory: "512Mi"   # Allow for request spikes
+            cpu: "500m"       # Max CPU for API processing
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 60   # Faster since no model download
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30   # Much faster startup
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 5
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 10  # Reduced since model is pre-loaded
+        volumeMounts:
+        - name: app-logs
+          mountPath: /app/logs
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+      volumes:
+      - name: app-logs
+        emptyDir: {}
+      terminationGracePeriodSeconds: 30  # Faster shutdown since no large models
+      restartPolicy: Always 

@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: llm-chatbot-service-account
+  namespace: default
+  labels:
+    app: llm-chatbot
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: llm-chatbot-cluster-role
+  labels:
+    app: llm-chatbot
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "endpoints"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["autoscaling"]
+  resources: ["horizontalpodautoscalers"]
+  verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: llm-chatbot-cluster-role-binding
+  labels:
+    app: llm-chatbot
+subjects:
+- kind: ServiceAccount
+  name: llm-chatbot-service-account
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: llm-chatbot-cluster-role
+  apiGroup: rbac.authorization.k8s.io 

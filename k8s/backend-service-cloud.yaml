@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-chatbot-backend-service
+  namespace: default
+  labels:
+    app: llm-chatbot
+    component: backend
+    environment: cloud
+  annotations:
+    cloud.google.com/load-balancer-type: "External"
+spec:
+  type: LoadBalancer
+  selector:
+    app: llm-chatbot
+    component: backend
+  ports:
+  - port: 80
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  sessionAffinity: None
+
+---
+# Headless service for internal communication and service discovery
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-chatbot-backend-headless
+  namespace: default
+  labels:
+    app: llm-chatbot
+    component: backend
+    environment: cloud
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: llm-chatbot
+    component: backend
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http 

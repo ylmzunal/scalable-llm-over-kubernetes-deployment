@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llm-chatbot-config
+  namespace: default
+  labels:
+    app: llm-chatbot
+    environment: cloud
+data:
+  # LLM Configuration - Cloud Deployment with TinyLlama Pre-loaded
+  model_provider: "ollama"  # Ollama with pre-loaded TinyLlama
+  model_name: "tinyllama"   # TinyLlama model (1.1B parameters - efficient and fast)
+  
+  # Ollama Configuration (Pre-loaded Model for Instant Availability)
+  # - TinyLlama model embedded in Docker image
+  # - No download time required
+  # - Instant chat availability
+  # - Optimized for cloud deployment
+  # - Lightweight and cost-effective
+  
+  # Application Configuration
+  log_level: "INFO"
+  max_connections: "50"  # Optimized for TinyLlama performance
+  connection_timeout: "30"
+  
+  # Feature Flags
+  enable_websockets: "true"
+  enable_metrics: "true"
+  enable_health_checks: "true"
+  enable_model_switching: "false"  # Single model deployment
+  
+  # Performance Settings - Optimized for TinyLlama
+  worker_processes: "1"
+  max_requests_per_worker: "100"  # Balanced for TinyLlama
+  keep_alive_timeout: "65"
+  
+  # TinyLlama Specific Settings
+  ollama_base_url: "http://localhost:11434"
+  ollama_request_timeout: "30"
+  max_concurrent_requests: "10"
+
+---
+# Secret for optional configurations
+apiVersion: v1
+kind: Secret
+metadata:
+  name: llm-chatbot-secrets
+  namespace: default
+  labels:
+    app: llm-chatbot
+    environment: cloud
+type: Opaque
+data:
+  # Currently no secrets needed for TinyLlama deployment
+  # Future use for API keys or certificates 
