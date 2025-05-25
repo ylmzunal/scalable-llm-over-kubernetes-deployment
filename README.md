@@ -1,5 +1,7 @@
 # Scalable LLM over Kubernetes Infrastructure - Google Cloud Deployment
 
+Deployment Link : http://askllm.net/
+
 ## 🚀 Production-Ready LLM Chatbot on Google Cloud
 
 This repository contains a **production-ready, scalable LLM chatbot** infrastructure designed specifically for Google Cloud deployment. The system features a complete frontend and backend deployment to Google Kubernetes Engine (GKE) with locally downloaded LLM models accessible through a public web interface.
