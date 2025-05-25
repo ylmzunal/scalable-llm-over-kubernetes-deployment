@@ -1,0 +1,97 @@
+graph TB
+    subgraph "Frontend Tier"
+        UI[React Chat Interface]
+        WS[WebSocket Client]
+        HTTP[HTTP Client]
+        Router[React Router]
+        State[State Management]
+        
+        UI --> WS
+        UI --> HTTP
+        UI --> Router
+        UI --> State
+    end
+    
+    subgraph "API Gateway Tier"
+        FastAPI[FastAPI Application]
+        WSHandler[WebSocket Handler]
+        HTTPHandler[HTTP Request Handler]
+        ConnMgr[Connection Manager]
+        Auth[Authentication Service]
+        
+        FastAPI --> WSHandler
+        FastAPI --> HTTPHandler
+        FastAPI --> ConnMgr
+        FastAPI --> Auth
+    end
+    
+    subgraph "Model Serving Tier"
+        LLMService[LLM Service]
+        OllamaClient[Ollama Client]
+        ModelMgr[Model Manager]
+        ContextMgr[Context Manager]
+        
+        LLMService --> OllamaClient
+        LLMService --> ModelMgr
+        LLMService --> ContextMgr
+    end
+    
+    subgraph "Ollama Sidecar"
+        OllamaServer[Ollama Server]
+        TinyLlama[TinyLlama Model]
+        ModelAPI[Model API]
+        
+        OllamaServer --> TinyLlama
+        OllamaServer --> ModelAPI
+    end
+    
+    subgraph "Infrastructure Services"
+        ConfigMap[Configuration]
+        Secrets[Secrets Management]
+        HPA[Horizontal Pod Autoscaler]
+        LoadBalancer[Load Balancer]
+        Registry[Artifact Registry]
+        
+        ConfigMap --> FastAPI
+        Secrets --> FastAPI
+        HPA --> FastAPI
+    end
+    
+    subgraph "Monitoring & Observability"
+        Metrics[Prometheus Metrics]
+        Logs[Application Logs]
+        Health[Health Checks]
+        
+        FastAPI --> Metrics
+        FastAPI --> Logs
+        FastAPI --> Health
+        OllamaServer --> Health
+    end
+    
+    %% Connections between tiers
+    WS -.->|WebSocket| WSHandler
+    HTTP -.->|HTTP/REST| HTTPHandler
+    LoadBalancer -.->|Route Traffic| FastAPI
+    
+    HTTPHandler --> LLMService
+    WSHandler --> LLMService
+    ConnMgr --> LLMService
+    
+    OllamaClient -.->|HTTP API| ModelAPI
+    
+    %% External connections
+    Users[Users] -.->|HTTPS| LoadBalancer
+    Registry -.->|Pull Images| FastAPI
+    Registry -.->|Pull Images| OllamaServer
+    
+    classDef frontend fill:#e1f5fe
+    classDef backend fill:#f3e5f5
+    classDef model fill:#e8f5e8
+    classDef infra fill:#fff3e0
+    classDef monitor fill:#fce4ec
+    
+    class UI,WS,HTTP,Router,State frontend
+    class FastAPI,WSHandler,HTTPHandler,ConnMgr,Auth backend
+    class LLMService,OllamaClient,ModelMgr,ContextMgr,OllamaServer,TinyLlama,ModelAPI model
+    class ConfigMap,Secrets,HPA,LoadBalancer,Registry infra
+    class Metrics,Logs,Health monitor

@@ -1,0 +1,98 @@
+sequenceDiagram
+    participant U as User Browser
+    participant LB as Load Balancer
+    participant FE as Frontend Pod
+    participant BE as FastAPI Container
+    participant OL as Ollama Container
+    participant TL as TinyLlama Model
+    participant CM as Connection Manager
+    participant HPA as HPA Controller
+    
+    Note over U,HPA: Initial Connection Setup
+    U->>+LB: HTTPS Request (Chat Page)
+    LB->>+FE: Route to Frontend Pod
+    FE->>-LB: Return Chat Interface
+    LB->>-U: Chat Page Loaded
+    
+    Note over U,HPA: WebSocket Connection
+    U->>+LB: WebSocket Upgrade Request
+    LB->>+FE: Route WebSocket
+    FE->>+BE: Proxy WebSocket to Backend
+    BE->>+CM: Register Connection
+    CM->>-BE: Connection Registered
+    BE->>-FE: WebSocket Established
+    FE->>-LB: WebSocket Ready
+    LB->>-U: WebSocket Connected
+    
+    Note over U,HPA: Chat Message Flow
+    U->>+LB: Send Chat Message (WebSocket)
+    LB->>+FE: Route Message
+    FE->>+BE: Forward Message
+    
+    BE->>+CM: Validate Connection
+    CM->>-BE: Connection Valid
+    
+    BE->>BE: Extract Message Content
+    BE->>BE: Generate Conversation ID
+    
+    Note over BE,TL: Model Inference Process
+    BE->>+OL: HTTP POST /api/generate
+    Note over OL: Request: {"model": "tinyllama", "prompt": "user_message"}
+    
+    OL->>+TL: Load Context & Process
+    TL->>TL: Tokenize Input
+    TL->>TL: Generate Response
+    TL->>-OL: Return Generated Text
+    
+    OL->>-BE: HTTP Response with Generated Text
+    
+    BE->>BE: Process Response
+    BE->>+CM: Send Response to User
+    CM->>-BE: Message Sent
+    
+    BE->>-FE: WebSocket Response
+    FE->>-LB: Forward Response
+    LB->>-U: Display Chat Response
+    
+    Note over U,HPA: Auto-scaling Trigger (High Load)
+    BE->>BE: CPU Usage > 60%
+    BE->>+HPA: Metrics Update
+    HPA->>HPA: Evaluate Scaling Policy
+    HPA->>+BE: Scale to 2 Replicas
+    Note over BE: New Backend Pod Created
+    BE->>-HPA: Scaling Complete
+    HPA->>-BE: Scaling Acknowledged
+    
+    Note over U,HPA: Health Check Flow
+    loop Every 30 seconds
+        BE->>+OL: GET /api/version (Liveness)
+        OL->>-BE: 200 OK
+        BE->>BE: Update Health Status
+        
+        FE->>+BE: GET /health (Readiness)
+        BE->>-FE: 200 OK
+    end
+    
+    Note over U,HPA: Error Handling Scenario
+    U->>+LB: Send Chat Message
+    LB->>+FE: Route Message
+    FE->>+BE: Forward Message
+    BE->>+OL: HTTP POST /api/generate
+    OL-->>-BE: 500 Internal Server Error
+    BE->>BE: Log Error & Retry Logic
+    BE->>+OL: Retry Request
+    OL->>-BE: 200 OK (Success)
+    BE->>-FE: Return Response
+    FE->>-LB: Forward Response
+    LB->>-U: Display Response
+    
+    Note over U,HPA: Connection Cleanup
+    U->>+LB: Close Browser/Tab
+    LB->>+FE: WebSocket Disconnect
+    FE->>+BE: Connection Closed
+    BE->>+CM: Unregister Connection
+    CM->>CM: Cleanup Resources
+    CM->>-BE: Connection Removed
+    BE->>-FE: Cleanup Complete
+    FE->>-LB: Disconnect Acknowledged
+    LB->>-U: Connection Closed

@@ -1,0 +1,109 @@
+sequenceDiagram
+    participant DEV as Developer
+    participant GIT as Git Repository
+    participant DOCKER as Docker Build
+    participant AR as Artifact Registry
+    participant GKE as GKE Cluster
+    participant K8S as Kubernetes API
+    participant POD as Backend Pod
+    participant OL as Ollama Container
+    participant HPA as HPA Controller
+    
+    Note over DEV,HPA: CI/CD Deployment Pipeline
+    
+    DEV->>+GIT: git push (code changes)
+    GIT->>-DEV: Push confirmed
+    
+    DEV->>+DOCKER: ./deploy-gke.sh
+    DOCKER->>DOCKER: Validate Prerequisites
+    DOCKER->>DOCKER: Setup GCloud Auth
+    
+    Note over DOCKER,AR: Image Build Process
+    DOCKER->>+DOCKER: Build Ollama Image
+    Note over DOCKER: FROM ollama/ollama:latest<br/>RUN ollama pull tinyllama
+    DOCKER->>-DOCKER: Ollama Image Ready
+    
+    DOCKER->>+DOCKER: Build Backend Image
+    Note over DOCKER: FROM python:3.11<br/>COPY app/ requirements.txt
+    DOCKER->>-DOCKER: Backend Image Ready
+    
+    DOCKER->>+DOCKER: Build Frontend Image
+    Note over DOCKER: FROM node:18 (build)<br/>FROM nginx:alpine (serve)
+    DOCKER->>-DOCKER: Frontend Image Ready
+    
+    DOCKER->>+AR: Push Images
+    AR->>AR: Store Images with Tags
+    AR->>-DOCKER: Push Complete
+    
+    Note over DOCKER,HPA: Kubernetes Deployment
+    DOCKER->>+K8S: kubectl apply -f k8s/rbac.yaml
+    K8S->>-DOCKER: RBAC Applied
+    
+    DOCKER->>+K8S: kubectl apply -f k8s/configmap-cloud.yaml
+    K8S->>-DOCKER: ConfigMap Applied
+    
+    DOCKER->>+K8S: kubectl apply -f k8s/backend-deployment-cloud.yaml
+    K8S->>K8S: Schedule Backend Pods
+    
+    K8S->>+POD: Create Backend Pod
+    POD->>+AR: Pull Backend Image
+    AR->>-POD: Image Downloaded
+    POD->>+AR: Pull Ollama Image
+    AR->>-POD: Image Downloaded
+    
+    Note over POD,OL: Pod Startup Sequence
+    POD->>+OL: Start Ollama Container
+    OL->>OL: Initialize Ollama Server
+    OL->>OL: Load TinyLlama Model (Pre-loaded)
+    OL->>-POD: Ollama Ready (15-30 seconds)
+    
+    POD->>+POD: Start FastAPI Container
+    POD->>POD: Initialize FastAPI App
+    POD->>+OL: Test Connection (localhost:11434)
+    OL->>-POD: Connection Successful
+    POD->>-POD: FastAPI Ready
+    
+    POD->>+K8S: Report Pod Ready
+    K8S->>-POD: Readiness Confirmed
+    K8S->>-DOCKER: Backend Deployment Complete
+    
+    DOCKER->>+K8S: kubectl apply -f k8s/frontend-deployment-cloud.yaml
+    K8S->>K8S: Schedule Frontend Pods
+    K8S->>-DOCKER: Frontend Deployment Complete
+    
+    DOCKER->>+K8S: kubectl apply -f k8s/hpa-cloud.yaml
+    K8S->>+HPA: Create HPA Resources
+    HPA->>HPA: Monitor Backend Metrics
+    HPA->>-K8S: HPA Active
+    K8S->>-DOCKER: HPA Applied
+    
+    DOCKER->>+K8S: kubectl get services
+    K8S->>-DOCKER: External IP Available
+    DOCKER->>-DEV: Deployment Complete<br/>App URL: http://EXTERNAL-IP
+    
+    Note over DEV,HPA: Health Verification
+    DEV->>+GKE: curl http://EXTERNAL-IP/health
+    GKE->>+POD: Route Health Check
+    POD->>+OL: Verify Ollama Status
+    OL->>-POD: Status OK
+    POD->>-GKE: Health Check Passed
+    GKE->>-DEV: 200 OK
+    
+    Note over DEV,HPA: Auto-scaling Verification
+    HPA->>+POD: Monitor CPU/Memory
+    POD->>-HPA: Metrics: CPU 30%, Memory 40%
+    HPA->>HPA: Within Thresholds (No Scaling)
+    
+    Note over DEV,HPA: Rolling Update Process
+    DEV->>+DOCKER: Deploy New Version
+    DOCKER->>+AR: Push Updated Images
+    AR->>-DOCKER: Images Updated
+    
+    DOCKER->>+K8S: kubectl apply (Updated Deployment)
+    K8S->>K8S: Rolling Update Strategy
+    K8S->>+POD: Create New Pod
+    POD->>POD: Start New Version
+    POD->>-K8S: New Pod Ready
+    K8S->>K8S: Terminate Old Pod
+    K8S->>-DOCKER: Rolling Update Complete
+    DOCKER->>-DEV: Update Successful

@@ -1,0 +1,122 @@
+graph TB
+    subgraph "Google Cloud Platform"
+        subgraph "Google Kubernetes Engine Cluster"
+            subgraph "Frontend Namespace"
+                subgraph "Frontend Pod 1"
+                    FE1[React App Container]
+                    NGINX1[Nginx Container]
+                end
+                subgraph "Frontend Pod 2"
+                    FE2[React App Container]
+                    NGINX2[Nginx Container]
+                end
+                FEService[Frontend Service<br/>LoadBalancer]
+                FEHPA[Frontend HPA<br/>2-10 replicas]
+            end
+            
+            subgraph "Backend Namespace"
+                subgraph "Backend Pod 1"
+                    BE1[FastAPI Container<br/>256Mi/512Mi<br/>200m/500m CPU]
+                    OL1[Ollama Container<br/>2Gi/6Gi Memory<br/>500m/1000m CPU]
+                    VOL1[Shared Volume<br/>Logs]
+                end
+                subgraph "Backend Pod 2"
+                    BE2[FastAPI Container]
+                    OL2[Ollama Container]
+                    VOL2[Shared Volume]
+                end
+                BEService[Backend Service<br/>ClusterIP]
+                BEHPA[Backend HPA<br/>1-3 replicas]
+            end
+            
+            subgraph "Configuration"
+                CM[ConfigMap<br/>Environment Variables]
+                SEC[Secrets<br/>API Keys]
+                RBAC[RBAC<br/>Service Accounts]
+            end
+            
+            subgraph "Node Pool"
+                NODE1[Node 1<br/>e2-small<br/>2 vCPU, 2GB RAM]
+                NODE2[Node 2<br/>e2-small<br/>2 vCPU, 2GB RAM]
+                NODEHPA[Cluster Autoscaler<br/>1-3 nodes]
+            end
+        end
+        
+        subgraph "Google Cloud Services"
+            ALB[Application Load Balancer<br/>External IP]
+            AR[Artifact Registry<br/>Container Images]
+            CM_SVC[Cloud Monitoring]
+            CL_SVC[Cloud Logging]
+        end
+        
+        subgraph "Networking"
+            VPC[Virtual Private Cloud]
+            SUBNET[GKE Subnet]
+            FW[Firewall Rules]
+        end
+    end
+    
+    subgraph "External"
+        USERS[Users<br/>Web Browsers]
+        DEVS[Developers<br/>CI/CD Pipeline]
+        DOCKER[Docker Build<br/>Environment]
+    end
+    
+    %% Connections
+    USERS -.->|HTTPS| ALB
+    ALB -.->|Route| FEService
+    FEService -.->|Load Balance| FE1
+    FEService -.->|Load Balance| FE2
+    
+    FE1 -.->|API Calls| BEService
+    FE2 -.->|API Calls| BEService
+    BEService -.->|Route| BE1
+    BEService -.->|Route| BE2
+    
+    BE1 -.->|localhost:11434| OL1
+    BE2 -.->|localhost:11434| OL2
+    
+    CM -.->|Config| BE1
+    CM -.->|Config| BE2
+    SEC -.->|Secrets| BE1
+    SEC -.->|Secrets| BE2
+    
+    FEHPA -.->|Scale| FE1
+    FEHPA -.->|Scale| FE2
+    BEHPA -.->|Scale| BE1
+    BEHPA -.->|Scale| BE2
+    
+    NODEHPA -.->|Scale| NODE1
+    NODEHPA -.->|Scale| NODE2
+    
+    DEVS -.->|Push Images| AR
+    DOCKER -.->|Build & Push| AR
+    AR -.->|Pull Images| BE1
+    AR -.->|Pull Images| BE2
+    AR -.->|Pull Images| FE1
+    AR -.->|Pull Images| FE2
+    
+    BE1 -.->|Metrics| CM_SVC
+    BE2 -.->|Metrics| CM_SVC
+    BE1 -.->|Logs| CL_SVC
+    BE2 -.->|Logs| CL_SVC
+    
+    %% Node placement
+    FE1 -.->|Scheduled on| NODE1
+    BE1 -.->|Scheduled on| NODE1
+    FE2 -.->|Scheduled on| NODE2
+    BE2 -.->|Scheduled on| NODE2
+    
+    classDef pod fill:#e3f2fd
+    classDef service fill:#f1f8e9
+    classDef config fill:#fff8e1
+    classDef node fill:#fce4ec
+    classDef cloud fill:#e8eaf6
+    classDef external fill:#efebe9
+    
+    class FE1,FE2,BE1,BE2,OL1,OL2 pod
+    class FEService,BEService,FEHPA,BEHPA service
+    class CM,SEC,RBAC config
+    class NODE1,NODE2,NODEHPA node
+    class ALB,AR,CM_SVC,CL_SVC,VPC,SUBNET,FW cloud
+    class USERS,DEVS,DOCKER external
