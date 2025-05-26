@@ -1,0 +1,202 @@
+# Google Managed SSL Certificate for askllm.net
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: askllm-ssl-cert
+  namespace: default
+  labels:
+    app: llm-chatbot
+    environment: cloud
+    domain: askllm.net
+spec:
+  domains:
+    - askllm.net
+    - www.askllm.net
+
+---
+# Ingress with SSL termination
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: askllm-ingress
+  namespace: default
+  labels:
+    app: llm-chatbot
+    environment: cloud
+    domain: askllm.net
+  annotations:
+    # Use Google Managed Certificate
+    networking.gke.io/managed-certificates: "askllm-ssl-cert"
+    
+    # Use Google Cloud Load Balancer
+    kubernetes.io/ingress.class: "gce"
+    
+    # Using existing frontend service IP (104.154.141.163)
+    # kubernetes.io/ingress.global-static-ip-name: "askllm-static-ip"
+    
+    # Security headers
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    
+    # CORS and security
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://askllm.net,https://www.askllm.net"
+    
+    # Rate limiting
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    
+    # Timeout settings
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    
+    # WebSocket support
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+
+spec:
+  # TLS configuration handled by Google Managed Certificate
+  # tls:
+  # - hosts:
+  #   - askllm.net
+  #   - www.askllm.net
+  #   secretName: askllm-tls-secret
+  
+  rules:
+  # Main domain
+  - host: askllm.net
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: llm-chatbot-backend-service
+            port:
+              number: 80
+      - path: /ws
+        pathType: Prefix
+        backend:
+          service:
+            name: llm-chatbot-backend-service
+            port:
+              number: 80
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: llm-chatbot-frontend-service
+            port:
+              number: 80
+  
+  # WWW subdomain
+  - host: www.askllm.net
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: llm-chatbot-backend-service
+            port:
+              number: 80
+      - path: /ws
+        pathType: Prefix
+        backend:
+          service:
+            name: llm-chatbot-backend-service
+            port:
+              number: 80
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: llm-chatbot-frontend-service
+            port:
+              number: 80
+
+---
+# HTTP to HTTPS redirect service
+apiVersion: v1
+kind: Service
+metadata:
+  name: askllm-redirect-service
+  namespace: default
+  labels:
+    app: llm-chatbot
+    component: redirect
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: llm-chatbot
+    component: redirect
+
+---
+# Deployment for HTTP to HTTPS redirect
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: askllm-redirect
+  namespace: default
+  labels:
+    app: llm-chatbot
+    component: redirect
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: llm-chatbot
+      component: redirect
+  template:
+    metadata:
+      labels:
+        app: llm-chatbot
+        component: redirect
+    spec:
+      containers:
+      - name: redirect
+        image: nginx:alpine
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
+            memory: "64Mi"
+            cpu: "50m"
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: askllm-redirect-config
+
+---
+# ConfigMap for HTTP to HTTPS redirect
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: askllm-redirect-config
+  namespace: default
+data:
+  default.conf: |
+    server {
+        listen 8080;
+        server_name askllm.net www.askllm.net;
+        
+        # Redirect all HTTP traffic to HTTPS
+        return 301 https://$host$request_uri;
+    } 

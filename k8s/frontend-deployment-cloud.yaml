@@ -124,45 +124,5 @@ spec:
     component: frontend
   sessionAffinity: None
 
----
-apiVersion: networking.gke.io/v1
-kind: ManagedCertificate
-metadata:
-  name: llm-chatbot-ssl-cert
-  namespace: default
-spec:
-  domains:
-    - llm-chatbot.example.com  # Replace with your actual domain
-
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: llm-chatbot-ingress
-  namespace: default
-  labels:
-    app: llm-chatbot
-    environment: cloud
-  annotations:
-    kubernetes.io/ingress.global-static-ip-name: "llm-chatbot-ip"
-    networking.gke.io/managed-certificates: "llm-chatbot-ssl-cert"
-    kubernetes.io/ingress.class: "gce"
-    kubernetes.io/ingress.allow-http: "true"
-spec:
-  rules:
-  - host: llm-chatbot.example.com  # Replace with your actual domain
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: llm-chatbot-frontend-service
-            port:
-              number: 80
-  # Default backend for requests without a specific host
-  defaultBackend:
-    service:
-      name: llm-chatbot-frontend-service
-      port:
-        number: 80 
+# SSL Certificate configuration moved to k8s/ssl-certificate-askllm.yaml
+# Use the dedicated SSL setup script: ./scripts/setup-ssl-askllm.sh 

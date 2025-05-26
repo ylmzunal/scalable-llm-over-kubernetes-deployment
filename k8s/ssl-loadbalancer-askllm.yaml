@@ -1,0 +1,13 @@
+# Google Managed SSL Certificate for LoadBalancer
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: askllm-loadbalancer-cert
+  namespace: default
+  labels:
+    app: llm-chatbot
+    domain: askllm.net
+spec:
+  domains:
+    - askllm.net
+    - www.askllm.net 
