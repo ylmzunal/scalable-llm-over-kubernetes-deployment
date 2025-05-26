@@ -1,0 +1,129 @@
+# Google Managed SSL Certificate
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: askllm-ssl-cert
+  namespace: default
+  labels:
+    app: llm-chatbot
+    domain: askllm.net
+spec:
+  domains:
+    - askllm.net
+    - www.askllm.net
+
+---
+# Ingress with SSL termination that routes to existing services
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: askllm-ssl-ingress
+  namespace: default
+  labels:
+    app: llm-chatbot
+    domain: askllm.net
+  annotations:
+    # Use Google Managed Certificate
+    networking.gke.io/managed-certificates: "askllm-ssl-cert"
+    
+    # Use Google Cloud Load Balancer
+    kubernetes.io/ingress.class: "gce"
+    
+    # Force HTTPS redirect
+    kubernetes.io/ingress.allow-http: "false"
+
+spec:
+  rules:
+  # Main domain - route to existing frontend service
+  - host: askllm.net
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: llm-chatbot-backend-service
+            port:
+              number: 80
+      - path: /ws
+        pathType: Prefix
+        backend:
+          service:
+            name: llm-chatbot-backend-service
+            port:
+              number: 80
+      - path: /health
+        pathType: Prefix
+        backend:
+          service:
+            name: llm-chatbot-frontend-service
+            port:
+              number: 80
+      - path: /stats
+        pathType: Prefix
+        backend:
+          service:
+            name: llm-chatbot-backend-service
+            port:
+              number: 80
+      - path: /metrics
+        pathType: Prefix
+        backend:
+          service:
+            name: llm-chatbot-backend-service
+            port:
+              number: 80
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: llm-chatbot-frontend-service
+            port:
+              number: 80
+  
+  # WWW subdomain
+  - host: www.askllm.net
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: llm-chatbot-backend-service
+            port:
+              number: 80
+      - path: /ws
+        pathType: Prefix
+        backend:
+          service:
+            name: llm-chatbot-backend-service
+            port:
+              number: 80
+      - path: /health
+        pathType: Prefix
+        backend:
+          service:
+            name: llm-chatbot-frontend-service
+            port:
+              number: 80
+      - path: /stats
+        pathType: Prefix
+        backend:
+          service:
+            name: llm-chatbot-backend-service
+            port:
+              number: 80
+      - path: /metrics
+        pathType: Prefix
+        backend:
+          service:
+            name: llm-chatbot-backend-service
+            port:
+              number: 80
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: llm-chatbot-frontend-service
+            port:
+              number: 80 
