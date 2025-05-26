@@ -1,0 +1,101 @@
+# Poster Generation Files (Local Only)
+# =====================================
+# These files are for poster presentation and should not be in the repository
+
+# Poster templates and generated files
+scalable_llm_poster_template.*
+*_poster_template.*
+demo_qr_code.png
+repo_qr_code.png
+*_qr_code.png
+
+# Poster generation scripts and guides
+POSTER_PRESENTATION_GUIDE.md
+POSTER_SETUP_REQUIREMENTS.md
+POSTER_PRESENTATION_SUMMARY.md
+create_poster_template.py
+poster_setup.sh
+manage_poster_files.sh
+
+# Virtual environment for poster generation
+poster_env/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp 
