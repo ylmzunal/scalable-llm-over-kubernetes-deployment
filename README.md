@@ -1,6 +1,6 @@
 # Scalable LLM over Kubernetes Infrastructure - Google Cloud Deployment
 
-Deployment Link : http://askllm.net/
+Deployment Link : www.askllm.net
 
 ## 🚀 Production-Ready LLM Chatbot on Google Cloud
 
