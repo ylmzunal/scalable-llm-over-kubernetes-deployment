@@ -20,6 +20,9 @@ README_POSTER_LOCAL.md
 
 # Virtual environment for poster generation
 poster_env/
+poster/
+diagrams/
+
 
 # Python bytecode
 __pycache__/
